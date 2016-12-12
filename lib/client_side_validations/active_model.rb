@@ -150,3 +150,38 @@ ActiveModel::Validations.send(:include, ClientSideValidations::ActiveModel::Vali
   validator.capitalize!
   ActiveModel::Validations.const_get("#{validator}Validator").send :include, ClientSideValidations::ActiveModel.const_get(validator)
 end
+
+module ActiveModel
+  module Validations
+    class ConfirmationValidator < ActiveModel::EachValidator
+      def initialize(options)
+        options[:attributes].map! { |attribute| "#{attribute}_confirmation".to_sym }
+        super({ case_sensitive: true }.merge!(options))
+        setup!(options[:class])
+      end
+
+      def validate_each(record, attribute, confirm_value)
+        original_attribute = attribute.to_s.sub('_confirmation', '')
+        value = record.send(original_attribute)
+        if value != confirm_value
+          human_attribute_name = record.class.human_attribute_name(original_attribute)
+          record.errors.add(attribute, :confirmation, options.merge(attribute: human_attribute_name))
+        end
+      end
+
+      def client_side_hash(model, attribute, _force = nil)
+        attribute_to_confirm = attribute.to_s.split(/_confirmation/)[0]
+        human_attribute_name = model.class.human_attribute_name(attribute_to_confirm)
+        build_client_side_hash(model, attribute, options.dup.merge(attribute: human_attribute_name))
+      end
+
+      private
+
+      def setup!(klass)
+        klass.send(:attr_accessor, *attributes.map do |attribute|
+          attribute unless klass.method_defined?(attribute)
+        end.compact)
+      end
+    end
+  end
+end
