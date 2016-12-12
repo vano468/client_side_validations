@@ -255,7 +255,7 @@
       };
       for (event in ref) {
         binding = ref[event];
-        $input.filter(':not(:radio):not([id$=_confirmation])').each(function() {
+        $input.filter(':not(:radio)').each(function() {
           return $(this).attr('data-validate', true);
         }).on(event, binding);
       }
@@ -263,22 +263,28 @@
         $(this).isValid(form.ClientSideValidations.settings.validators);
       });
       return $input.filter('[id$=_confirmation]').each(function() {
-        var confirmationElement, element, ref1, results;
+        var confirmationElement, handleFocusout, parentElement, ref1, results;
         confirmationElement = $(this);
-        element = $form.find("#" + (this.id.match(/(.+)_confirmation/)[1]) + ":input");
-        if (element[0]) {
+        handleFocusout = function() {
+          confirmationElement.data('focusedOut', true);
+          return confirmationElement.data('changed', true).isValid(form.ClientSideValidations.settings.validators);
+        };
+        $form.on('submit.ClientSideValidations', handleFocusout);
+        confirmationElement.on('focusout.ClientSideValidations', handleFocusout);
+        parentElement = $form.find("#" + (this.id.match(/(.+)_confirmation/)[1]) + ":input");
+        if (parentElement.length) {
           ref1 = {
             'focusout.ClientSideValidations': function() {
-              element.data('changed', true).isValid(form.ClientSideValidations.settings.validators);
+              return confirmationElement.data('changed', true).isValid(form.ClientSideValidations.settings.validators);
             },
             'keyup.ClientSideValidations': function() {
-              element.data('changed', true).isValid(form.ClientSideValidations.settings.validators);
+              return confirmationElement.data('changed', true).isValid(form.ClientSideValidations.settings.validators);
             }
           };
           results = [];
           for (event in ref1) {
             binding = ref1[event];
-            results.push($("#" + (confirmationElement.attr('id'))).on(event, binding));
+            results.push(parentElement.on(event, binding));
           }
           return results;
         }
@@ -469,9 +475,10 @@
         }
       },
       confirmation: function(element, options) {
-        var regex;
+        var parentElement, regex;
         regex = new RegExp("^" + (element.val()) + "$", options.case_sensitive ? '' : 'i');
-        if (!regex.test($("#" + (element.attr('id')) + "_confirmation").val())) {
+        parentElement = element.closest('form').find("#" + (element.attr('id').replace('_confirmation', '')));
+        if (element.data('focusedOut') && !regex.test(parentElement.val())) {
           return options.message;
         }
       },
